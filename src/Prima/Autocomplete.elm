@@ -29,13 +29,15 @@ type Config msg data
         { msgMapper : Msg data -> State -> msg
         , suggestionsMapper : data -> Value
         , selected : Maybe data
-        , customizations : Customizations
+        , customizations : Customizations msg
         }
 
 
-type alias Customizations =
+type alias Customizations msg =
     { placeholder : Placeholder
     , threshold : Int
+    , container : List (Html msg) -> Html msg
+    , input : List (Attribute msg) -> Html msg
     }
 
 
@@ -56,6 +58,20 @@ renderUnless check =
 -- defaultConfig =
 
 
+defaultContainer content =
+    div [ class "autocomplete" ] content
+
+
+defaultInput attrs =
+    input
+        ([ class "autocomplete__input"
+         , Attr.autocomplete False
+         ]
+            ++ attrs
+        )
+        []
+
+
 config : Maybe data -> (Msg data -> State -> msg) -> (data -> Value) -> Config msg data
 config selected msgMapper suggestionsMapper =
     Config
@@ -65,6 +81,8 @@ config selected msgMapper suggestionsMapper =
         , customizations =
             { placeholder = ""
             , threshold = 2
+            , container = defaultContainer
+            , input = defaultInput
             }
         }
 
@@ -83,13 +101,12 @@ getSearchMsg threshold value =
 
 
 view : Config msg data -> State -> List data -> Html msg
-view ((Config { selected }) as config) state suggestionsList =
+view ((Config { selected, customizations }) as config) state suggestionsList =
     let
         hasSelection =
             Maybe.map (always True) selected |> Maybe.withDefault False
     in
-        div
-            [ class "autocomplete" ]
+        customizations.container
             [ search config state
             , suggestions config state suggestionsList
                 |> renderUnless hasSelection
@@ -118,15 +135,10 @@ search (Config { msgMapper, suggestionsMapper, selected, customizations }) state
                             msgMapper (getSearchMsg customizations.threshold value) (State value)
                         )
     in
-        input
-            ([ class "autocomplete__search form__autocomplete"
-             , event
-             , Attr.placeholder customizations.placeholder
-             , Attr.autocomplete False
-             ]
+        customizations.input
+            ([ event, Attr.placeholder customizations.placeholder ]
                 ++ currentValue
             )
-            []
 
 
 suggestions : Config msg data -> State -> List data -> Html msg
