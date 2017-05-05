@@ -1,7 +1,7 @@
 module Prima.Autocomplete exposing (..)
 
 import Html exposing (..)
-import Html.Attributes as Attr exposing (class, classList, id, name, placeholder, autocomplete)
+import Html.Attributes as Attr exposing (class, classList, id, placeholder, autocomplete)
 import Html.Events exposing (onInput, onClick)
 
 
@@ -10,10 +10,6 @@ type State
 
 
 type alias Value =
-    String
-
-
-type alias Name =
     String
 
 
@@ -33,10 +29,14 @@ type Config msg data
         { msgMapper : Msg data -> State -> msg
         , suggestionsMapper : data -> Value
         , selected : Maybe data
-        , threshold : Int
-        , name : Name
-        , placeholder : Placeholder
+        , customizations : Customizations
         }
+
+
+type alias Customizations =
+    { placeholder : Placeholder
+    , threshold : Int
+    }
 
 
 renderIf : Bool -> Html a -> Html a
@@ -52,15 +52,20 @@ renderUnless check =
     renderIf (not check)
 
 
-config : Name -> Placeholder -> Maybe data -> (Msg data -> State -> msg) -> (data -> Value) -> Config msg data
-config name placeholder selected msgMapper suggestionsMapper =
+
+-- defaultConfig =
+
+
+config : Maybe data -> (Msg data -> State -> msg) -> (data -> Value) -> Config msg data
+config selected msgMapper suggestionsMapper =
     Config
-        { name = name
-        , placeholder = placeholder
-        , msgMapper = msgMapper
+        { msgMapper = msgMapper
         , suggestionsMapper = suggestionsMapper
         , selected = selected
-        , threshold = 2
+        , customizations =
+            { placeholder = ""
+            , threshold = 2
+            }
         }
 
 
@@ -78,14 +83,13 @@ getSearchMsg threshold value =
 
 
 view : Config msg data -> State -> List data -> Html msg
-view ((Config { selected, threshold }) as config) state suggestionsList =
+view ((Config { selected }) as config) state suggestionsList =
     let
         hasSelection =
             Maybe.map (always True) selected |> Maybe.withDefault False
     in
         div
-            [ class "autocomplete"
-            ]
+            [ class "autocomplete" ]
             [ search config state
             , suggestions config state suggestionsList
                 |> renderUnless hasSelection
@@ -93,7 +97,7 @@ view ((Config { selected, threshold }) as config) state suggestionsList =
 
 
 search : Config msg data -> State -> Html msg
-search (Config { msgMapper, suggestionsMapper, selected, threshold, placeholder, name }) state =
+search (Config { msgMapper, suggestionsMapper, selected, customizations }) state =
     let
         currentValue =
             case selected of
@@ -111,15 +115,13 @@ search (Config { msgMapper, suggestionsMapper, selected, threshold, placeholder,
                 Nothing ->
                     onInput
                         (\value ->
-                            msgMapper (getSearchMsg threshold value) (State value)
+                            msgMapper (getSearchMsg customizations.threshold value) (State value)
                         )
     in
         input
             ([ class "autocomplete__search form__autocomplete"
              , event
-             , Attr.placeholder placeholder
-             , Attr.name name
-             , Attr.id name
+             , Attr.placeholder customizations.placeholder
              , Attr.autocomplete False
              ]
                 ++ currentValue
