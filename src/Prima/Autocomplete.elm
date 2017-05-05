@@ -28,7 +28,6 @@ type Config msg data
     = Config
         { msgMapper : Msg data -> State -> msg
         , suggestionsMapper : data -> Value
-        , selected : Maybe data
         , customizations : Customizations msg data
         }
 
@@ -111,12 +110,11 @@ defaultCostumization =
     }
 
 
-config : Maybe data -> (Msg data -> State -> msg) -> (data -> Value) -> Config msg data
-config selected msgMapper suggestionsMapper =
+config : (Msg data -> State -> msg) -> (data -> Value) -> Config msg data
+config msgMapper suggestionsMapper =
     Config
         { msgMapper = msgMapper
         , suggestionsMapper = suggestionsMapper
-        , selected = selected
         , customizations = defaultCostumization
         }
 
@@ -139,29 +137,27 @@ getSearchMsg threshold value =
         ThresholdNotReached
 
 
-view : Config msg data -> State -> List data -> Html msg
-view ((Config { selected, customizations }) as config) state suggestionsList =
+view : Config msg data -> State -> List data -> Maybe data -> Html msg
+view ((Config { customizations }) as config) state suggestionsList selected =
     let
         hasSelection =
             Maybe.map (always True) selected |> Maybe.withDefault False
     in
         customizations.container
-            [ search config state
+            [ search config state selected
             , suggestions config state suggestionsList
                 |> renderUnless hasSelection
             ]
 
 
-search : Config msg data -> State -> Html msg
-search (Config { msgMapper, suggestionsMapper, selected, customizations }) state =
+search : Config msg data -> State -> Maybe data -> Html msg
+search (Config { msgMapper, suggestionsMapper, customizations }) ((State value) as state) selected =
     let
         currentValue =
-            case selected of
-                Just suggestion ->
-                    [ suggestionsMapper suggestion |> Attr.value ]
-
-                Nothing ->
-                    []
+            selected
+                |> Maybe.map suggestionsMapper
+                |> Maybe.withDefault value
+                |> Attr.value
 
         event =
             case selected of
@@ -170,22 +166,23 @@ search (Config { msgMapper, suggestionsMapper, selected, customizations }) state
 
                 Nothing ->
                     onInput
-                        (\value ->
-                            msgMapper (getSearchMsg customizations.threshold value) (State value)
+                        (\newValue ->
+                            msgMapper (getSearchMsg customizations.threshold newValue) (State newValue)
                         )
     in
-        customizations.input
-            ([ event, Attr.placeholder customizations.placeholder ]
-                ++ currentValue
-            )
+        customizations.input [ event, currentValue, Attr.placeholder customizations.placeholder ]
+
+
+itemForElement : Config msg data -> State -> data -> ( Value, data, msg )
+itemForElement (Config { suggestionsMapper, msgMapper }) state item =
+    ( suggestionsMapper item, item, msgMapper (OnSelect item) state )
 
 
 suggestions : Config msg data -> State -> List data -> Html msg
-suggestions ((Config { customizations, msgMapper, suggestionsMapper }) as config) ((State value) as state) suggestionsList =
+suggestions ((Config { customizations }) as config) ((State value) as state) suggestionsList =
     let
         items =
-            suggestionsList
-                |> List.map (\item -> ( suggestionsMapper item, item, (msgMapper (OnSelect item) state) ))
+            List.map (itemForElement config state) suggestionsList
 
         hasNoSuggestions =
             List.length suggestionsList == 0
