@@ -38,7 +38,8 @@ type alias Customizations msg data =
     , threshold : Int
     , container : List (Html msg) -> Html msg
     , input : List (Attribute msg) -> Html msg
-    , listContainer : List data -> Html msg
+    , listContainer : (( Value, data, msg ) -> Html msg) -> List ( Value, data, msg ) -> Html msg
+    , elementContainer : ( Value, data, msg ) -> Html msg
     }
 
 
@@ -90,8 +91,18 @@ defaultNoSuggestionMessage =
     "No result found"
 
 
-defaultSuggestion value =
-    li [] []
+defaultSuggestion ( label, _, callback ) =
+    li [ class "autocomplete__suggestion", onClick callback ] [ text label ]
+
+
+defaultCostumization =
+    { placeholder = ""
+    , threshold = 2
+    , container = defaultContainer
+    , input = defaultInput
+    , listContainer = defaultListContainer defaultNoSuggestionMessage
+    , elementContainer = defaultSuggestion
+    }
 
 
 config : Maybe data -> (Msg data -> State -> msg) -> (data -> Value) -> Config msg data
@@ -100,13 +111,7 @@ config selected msgMapper suggestionsMapper =
         { msgMapper = msgMapper
         , suggestionsMapper = suggestionsMapper
         , selected = selected
-        , customizations =
-            { placeholder = ""
-            , threshold = 2
-            , container = defaultContainer
-            , input = defaultInput
-            , listContainer = defaultListContainer defaultNoSuggestionMessage defaultSuggestion
-            }
+        , customizations = defaultCostumization
         }
 
 
@@ -165,14 +170,10 @@ search (Config { msgMapper, suggestionsMapper, selected, customizations }) state
 
 
 suggestions : Config msg data -> State -> List data -> Html msg
-suggestions ((Config { customizations }) as config) state suggestionsList =
-    customizations.listContainer suggestionsList
-
-
-suggestion : Config msg data -> State -> data -> Html msg
-suggestion (Config { suggestionsMapper, msgMapper }) state item =
-    li
-        [ class "autocomplete__suggestion"
-        , onClick (msgMapper (OnSelect item) state)
-        ]
-        [ item |> suggestionsMapper |> text ]
+suggestions ((Config { customizations, msgMapper, suggestionsMapper }) as config) state suggestionsList =
+    let
+        items =
+            suggestionsList
+                |> List.map (\item -> ( suggestionsMapper item, item, (msgMapper (OnSelect item) state) ))
+    in
+        customizations.listContainer customizations.elementContainer items
