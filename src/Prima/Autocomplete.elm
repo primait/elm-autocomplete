@@ -38,7 +38,7 @@ type alias Customizations msg data =
     , threshold : Int
     , container : List (Html msg) -> Html msg
     , input : List (Attribute msg) -> Html msg
-    , listContainer : Html msg -> (( Value, data, msg ) -> Html msg) -> List ( Value, data, msg ) -> Html msg
+    , listContainer : Maybe (Html msg) -> (( Value, data, msg ) -> Html msg) -> List ( Value, data, msg ) -> Html msg
     , elementContainer : ( Value, data, msg ) -> Html msg
     , noResult : Html msg
     }
@@ -74,7 +74,7 @@ defaultInput attrs =
         input attributes []
 
 
-defaultListContainer noResult suggestion suggestionsList =
+defaultListContainer maybeMessage suggestion suggestionsList =
     let
         children =
             List.map suggestion suggestionsList
@@ -83,7 +83,7 @@ defaultListContainer noResult suggestion suggestionsList =
             List.length suggestionsList == 0
 
         message =
-            renderIf hasNoSuggestions noResult
+            Maybe.withDefault (text "") maybeMessage
     in
         div
             [ classList [ ( "no-suggestions", hasNoSuggestions ) ] ]
@@ -126,9 +126,14 @@ initialState =
     State ""
 
 
+isAboveThreshold : Int -> Value -> Bool
+isAboveThreshold threshold value =
+    threshold <= String.length value
+
+
 getSearchMsg : Int -> Value -> Msg data
 getSearchMsg threshold value =
-    if threshold <= String.length value then
+    if isAboveThreshold threshold value then
         OnSearch value
     else
         ThresholdNotReached
@@ -176,10 +181,19 @@ search (Config { msgMapper, suggestionsMapper, selected, customizations }) state
 
 
 suggestions : Config msg data -> State -> List data -> Html msg
-suggestions ((Config { customizations, msgMapper, suggestionsMapper }) as config) state suggestionsList =
+suggestions ((Config { customizations, msgMapper, suggestionsMapper }) as config) ((State value) as state) suggestionsList =
     let
         items =
             suggestionsList
                 |> List.map (\item -> ( suggestionsMapper item, item, (msgMapper (OnSelect item) state) ))
+
+        hasNoSuggestions =
+            List.length suggestionsList == 0
+
+        message =
+            if (isAboveThreshold customizations.threshold value && hasNoSuggestions) then
+                Just customizations.noResult
+            else
+                Nothing
     in
-        customizations.listContainer customizations.noResult customizations.elementContainer items
+        customizations.listContainer message customizations.elementContainer items
