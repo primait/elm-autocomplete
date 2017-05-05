@@ -29,15 +29,16 @@ type Config msg data
         { msgMapper : Msg data -> State -> msg
         , suggestionsMapper : data -> Value
         , selected : Maybe data
-        , customizations : Customizations msg
+        , customizations : Customizations msg data
         }
 
 
-type alias Customizations msg =
+type alias Customizations msg data =
     { placeholder : Placeholder
     , threshold : Int
     , container : List (Html msg) -> Html msg
     , input : List (Attribute msg) -> Html msg
+    , listContainer : List data -> Html msg
     }
 
 
@@ -72,6 +73,27 @@ defaultInput attrs =
         []
 
 
+defaultListContainer noSuggestionsMessage suggestion suggestionsList =
+    let
+        children =
+            List.map suggestion suggestionsList
+
+        message =
+            renderIf (List.length suggestionsList == 0) (text noSuggestionsMessage)
+    in
+        ul
+            [ classList [ ( "no-suggestions", List.length suggestionsList < 1 ) ] ]
+            (message :: children)
+
+
+defaultNoSuggestionMessage =
+    "No result found"
+
+
+defaultSuggestion value =
+    li [] []
+
+
 config : Maybe data -> (Msg data -> State -> msg) -> (data -> Value) -> Config msg data
 config selected msgMapper suggestionsMapper =
     Config
@@ -83,6 +105,7 @@ config selected msgMapper suggestionsMapper =
             , threshold = 2
             , container = defaultContainer
             , input = defaultInput
+            , listContainer = defaultListContainer defaultNoSuggestionMessage defaultSuggestion
             }
         }
 
@@ -142,18 +165,8 @@ search (Config { msgMapper, suggestionsMapper, selected, customizations }) state
 
 
 suggestions : Config msg data -> State -> List data -> Html msg
-suggestions config state suggestionsList =
-    ul
-        [ classList
-            [ ( "autocomplete__suggestions", True )
-            , ( "no-suggestions", List.length suggestionsList < 1 )
-            ]
-        ]
-        (if List.length suggestionsList > 0 then
-            List.map (suggestion config state) suggestionsList
-         else
-            [ noSuggestions ]
-        )
+suggestions ((Config { customizations }) as config) state suggestionsList =
+    customizations.listContainer suggestionsList
 
 
 suggestion : Config msg data -> State -> data -> Html msg
@@ -163,10 +176,3 @@ suggestion (Config { suggestionsMapper, msgMapper }) state item =
         , onClick (msgMapper (OnSelect item) state)
         ]
         [ item |> suggestionsMapper |> text ]
-
-
-noSuggestions : Html msg
-noSuggestions =
-    li
-        [ class "autocomplete__suggestion" ]
-        [ "Nessun risultato trovato" |> text ]
