@@ -38,8 +38,9 @@ type alias Customizations msg data =
     , threshold : Int
     , container : List (Html msg) -> Html msg
     , input : List (Attribute msg) -> Html msg
-    , listContainer : (( Value, data, msg ) -> Html msg) -> List ( Value, data, msg ) -> Html msg
+    , listContainer : Html msg -> (( Value, data, msg ) -> Html msg) -> List ( Value, data, msg ) -> Html msg
     , elementContainer : ( Value, data, msg ) -> Html msg
+    , noResult : Html msg
     }
 
 
@@ -65,30 +66,34 @@ defaultContainer content =
 
 
 defaultInput attrs =
-    input
-        ([ class "autocomplete__input"
-         , Attr.autocomplete False
-         ]
-            ++ attrs
-        )
-        []
+    let
+        attributes =
+            [ class "autocomplete__input", Attr.autocomplete False ]
+                |> List.append attrs
+    in
+        input attributes []
 
 
-defaultListContainer noSuggestionsMessage suggestion suggestionsList =
+defaultListContainer noResult suggestion suggestionsList =
     let
         children =
             List.map suggestion suggestionsList
 
+        hasNoSuggestions =
+            List.length suggestionsList == 0
+
         message =
-            renderIf (List.length suggestionsList == 0) (text noSuggestionsMessage)
+            renderIf hasNoSuggestions noResult
     in
-        ul
-            [ classList [ ( "no-suggestions", List.length suggestionsList < 1 ) ] ]
-            (message :: children)
+        div
+            [ classList [ ( "no-suggestions", hasNoSuggestions ) ] ]
+            [ ul [] children
+            , message
+            ]
 
 
-defaultNoSuggestionMessage =
-    "No result found"
+defaultNoResult =
+    div [] [ text "No result found" ]
 
 
 defaultSuggestion ( label, _, callback ) =
@@ -100,7 +105,8 @@ defaultCostumization =
     , threshold = 2
     , container = defaultContainer
     , input = defaultInput
-    , listContainer = defaultListContainer defaultNoSuggestionMessage
+    , noResult = defaultNoResult
+    , listContainer = defaultListContainer
     , elementContainer = defaultSuggestion
     }
 
@@ -176,4 +182,4 @@ suggestions ((Config { customizations, msgMapper, suggestionsMapper }) as config
             suggestionsList
                 |> List.map (\item -> ( suggestionsMapper item, item, (msgMapper (OnSelect item) state) ))
     in
-        customizations.listContainer customizations.elementContainer items
+        customizations.listContainer customizations.noResult customizations.elementContainer items
