@@ -94,7 +94,7 @@ defaultContainer : Html msg -> ViewState msg -> Html msg -> Html msg
 defaultContainer noResultView viewState searchInput =
     let
         classes =
-            [ ( "autocomplete", True )
+            [ ( "autocomplete__container", True )
             , ( "no-result", hasNoData viewState )
             , ( "has-data", hasData viewState )
             ]
@@ -138,7 +138,7 @@ defaultNoResult =
 
 defaultElementContainer : (data -> Html msg) -> ( data, msg ) -> Html msg
 defaultElementContainer toHtml ( data, callback ) =
-    li [ class "autocomplete__suggestion", onClick callback ] [ toHtml data ]
+    li [ class "autocomplete__item", onClick callback ] [ toHtml data ]
 
 
 defaultCostumization toText =
