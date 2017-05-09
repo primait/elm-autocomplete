@@ -87,10 +87,6 @@ isPristine viewState =
             False
 
 
-
--- defaultConfig =
-
-
 defaultContainer : Html msg -> ViewState msg -> Html msg -> Html msg
 defaultContainer noResultView viewState searchInput =
     let

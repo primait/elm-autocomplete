@@ -1,13 +1,15 @@
 {
     "version": "1.0.0",
     "summary": "A very simple autocomplete",
-    "repository": "https://github.com/primait/elm-autocomplete",
+    "repository": "https://github.com/primait/elm-autocomplete.git",
     "license": "BSD3",
     "source-directories": [
         ".",
         "src/"
     ],
-    "exposed-modules": [],
+    "exposed-modules": [
+        "Autocomplete"
+    ],
     "dependencies": {
         "elm-lang/core": "5.0.0 <= v < 6.0.0",
         "elm-lang/html": "2.0.0 <= v < 3.0.0"
