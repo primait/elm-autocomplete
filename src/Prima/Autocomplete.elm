@@ -1,7 +1,7 @@
 module Prima.Autocomplete exposing (..)
 
 import Html exposing (..)
-import Html.Attributes as Attr exposing (class, classList, id, placeholder, autocomplete)
+import Html.Attributes as Attr exposing (class, classList, id, placeholder, autocomplete, value)
 import Html.Events exposing (onInput, onClick)
 
 
@@ -123,15 +123,24 @@ isAboveThreshold threshold value =
     threshold <= String.length value
 
 
-getSearchMsg : Int -> String -> Msg data
+getSearchMsg : Int -> String -> ( State, Msg data )
 getSearchMsg threshold value =
     let
         thresholdReached =
             isAboveThreshold threshold value
     in
-        OnSearch { value = value, thresholdReached = thresholdReached }
+        ( State value, OnSearch { value = value, thresholdReached = thresholdReached } )
 
 
 view : Config data msg -> State -> List data -> Html msg
-view (Config { toMsg, toText, customizations }) state items =
-    customizations.container []
+view (Config { toMsg, toText, customizations }) (State currentValue) items =
+    let
+        searchInput =
+            customizations.input
+                [ onInput <| \string -> toMsg (getSearchMsg customizations.threshold string)
+                , value currentValue
+                ]
+    in
+        customizations.container
+            [ searchInput
+            ]
