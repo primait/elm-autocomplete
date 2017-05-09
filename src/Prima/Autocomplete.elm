@@ -14,6 +14,12 @@ type Msg data
     | OnSelect data
 
 
+type ViewState msg
+    = Pristine
+    | WithData (Html msg)
+    | NoData
+
+
 type Config data msg
     = Config
         { toMsg : ( State, Msg data ) -> msg
@@ -25,15 +31,16 @@ type Config data msg
 type alias Customizations data msg =
     { placeholder : String
     , threshold : Int
-    , container : List (Html msg) -> Html msg
+    , container :
+        ViewState msg
+        -> Html msg
+        -> Html msg
     , input : List (Attribute msg) -> Html msg
     , listContainer :
-        Maybe (Html msg)
-        -> (( data, msg ) -> Html msg)
+        (( data, msg ) -> Html msg)
         -> List ( data, msg )
         -> Html msg
     , elementContainer : ( data, msg ) -> Html msg
-    , noResult : Html msg
     }
 
 
@@ -54,8 +61,19 @@ renderUnless check =
 -- defaultConfig =
 
 
-defaultContainer content =
-    div [ class "autocomplete" ] content
+defaultContainer noResultView viewState searchInput =
+    div [ class "autocomplete" ]
+        [ searchInput
+        , case viewState of
+            Pristine ->
+                text ""
+
+            WithData items ->
+                items
+
+            NoData ->
+                noResultView
+        ]
 
 
 defaultInput attrs =
@@ -67,22 +85,8 @@ defaultInput attrs =
         input attributes []
 
 
-defaultListContainer maybeMessage toHtml items =
-    let
-        children =
-            List.map toHtml items
-
-        hasNoSuggestions =
-            List.length items == 0
-
-        message =
-            Maybe.withDefault (text "") maybeMessage
-    in
-        div
-            [ classList [ ( "no-suggestions", hasNoSuggestions ) ] ]
-            [ ul [] children
-            , message
-            ]
+defaultListContainer toHtml items =
+    ul [] (List.map toHtml items)
 
 
 defaultNoResult =
@@ -96,9 +100,8 @@ defaultElementContainer toHtml ( data, callback ) =
 defaultCostumization toText =
     { placeholder = ""
     , threshold = 2
-    , container = defaultContainer
+    , container = defaultContainer defaultNoResult
     , input = defaultInput
-    , noResult = defaultNoResult
     , listContainer = defaultListContainer
     , elementContainer = defaultElementContainer toText
     }
@@ -140,17 +143,28 @@ getSearchMsg threshold value =
 view : Config data msg -> State -> List data -> Html msg
 view (Config { toMsg, toText, customizations }) (State currentValue) items =
     let
+        threshold =
+            customizations.threshold
+
         searchInput =
             customizations.input
-                [ onInput <| \string -> toMsg (getSearchMsg customizations.threshold string)
+                [ onInput <| \string -> toMsg (getSearchMsg threshold string)
                 , value currentValue
                 ]
 
         resultList =
             List.map (\data -> ( data, toMsg <| ( State currentValue, OnSelect data ) )) items
-                |> customizations.listContainer Nothing customizations.elementContainer
+                |> customizations.listContainer customizations.elementContainer
+
+        viewState =
+            if currentValue == "" || (not <| isAboveThreshold threshold currentValue) then
+                Pristine
+            else
+                case List.length items of
+                    0 ->
+                        NoData
+
+                    _ ->
+                        WithData resultList
     in
-        customizations.container
-            [ searchInput
-            , resultList
-            ]
+        customizations.container viewState searchInput
