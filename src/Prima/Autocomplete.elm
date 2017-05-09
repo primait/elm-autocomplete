@@ -7,7 +7,9 @@ module Prima.Autocomplete
         , initialState
         , setInputValue
         , config
+        , customConfig
         , view
+        , hasData
         , hasNoData
         , isPristine
         )
@@ -35,7 +37,6 @@ type ViewState msg
 type Config data msg
     = Config
         { toMsg : ( State, Msg data ) -> msg
-        , toText : data -> Html msg
         , customizations : Customizations data msg
         }
 
@@ -141,14 +142,14 @@ defaultElementContainer toHtml ( data, callback ) =
     li [ class "autocomplete__item", onClick callback ] [ toHtml data ]
 
 
-defaultCostumization : (data -> Html msg) -> Customizations data msg
-defaultCostumization toText =
+defaultCostumization : Customizations data msg
+defaultCostumization =
     { placeholder = ""
     , threshold = 2
     , container = defaultContainer defaultNoResult
     , input = defaultInput
     , listContainer = defaultListContainer
-    , elementContainer = defaultElementContainer toText
+    , elementContainer = always (text "configure me!")
     }
 
 
@@ -156,9 +157,17 @@ config : (( State, Msg data ) -> msg) -> (data -> Html msg) -> Config data msg
 config toMsg toText =
     Config
         { toMsg = toMsg
-        , toText = toText
-        , customizations = defaultCostumization toText
+        , customizations = { defaultCostumization | elementContainer = defaultElementContainer toText }
         }
+
+
+customConfig :
+    { toMsg : ( State, Msg data ) -> msg
+    , customizations : Customizations data msg
+    }
+    -> Config data msg
+customConfig data =
+    Config data
 
 
 initialState : State
