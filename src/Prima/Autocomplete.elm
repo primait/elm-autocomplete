@@ -6,39 +6,33 @@ import Html.Events exposing (onInput, onClick)
 
 
 type State
-    = State Value
-
-
-type alias Value =
-    String
-
-
-type alias Placeholder =
-    String
+    = State String
 
 
 type Msg data
-    = ThresholdNotReached
-    | OnSearch Value
+    = OnSearch { value : String, thresholdReached : Bool }
     | OnSelect data
-    | OnUnselect
 
 
-type Config msg data
+type Config data msg
     = Config
-        { msgMapper : Msg data -> State -> msg
-        , suggestionsMapper : data -> Value
-        , customizations : Customizations msg data
+        { toMsg : ( State, Msg data ) -> msg
+        , toText : data -> Html msg
+        , customizations : Customizations data msg
         }
 
 
-type alias Customizations msg data =
-    { placeholder : Placeholder
+type alias Customizations data msg =
+    { placeholder : String
     , threshold : Int
     , container : List (Html msg) -> Html msg
     , input : List (Attribute msg) -> Html msg
-    , listContainer : Maybe (Html msg) -> (( Value, data, msg ) -> Html msg) -> List ( Value, data, msg ) -> Html msg
-    , elementContainer : ( Value, data, msg ) -> Html msg
+    , listContainer :
+        Maybe (Html msg)
+        -> (( data, msg ) -> Html msg)
+        -> List ( data, msg )
+        -> Html msg
+    , elementContainer : ( data, msg ) -> Html msg
     , noResult : Html msg
     }
 
@@ -73,13 +67,13 @@ defaultInput attrs =
         input attributes []
 
 
-defaultListContainer maybeMessage suggestion suggestionsList =
+defaultListContainer maybeMessage toHtml items =
     let
         children =
-            List.map suggestion suggestionsList
+            List.map toHtml items
 
         hasNoSuggestions =
-            List.length suggestionsList == 0
+            List.length items == 0
 
         message =
             Maybe.withDefault (text "") maybeMessage
@@ -95,27 +89,27 @@ defaultNoResult =
     div [] [ text "No result found" ]
 
 
-defaultSuggestion ( label, _, callback ) =
-    li [ class "autocomplete__suggestion", onClick callback ] [ text label ]
+defaultElementContainer toHtml ( data, callback ) =
+    li [ class "autocomplete__suggestion", onClick callback ] [ toHtml data ]
 
 
-defaultCostumization =
+defaultCostumization toText =
     { placeholder = ""
     , threshold = 2
     , container = defaultContainer
     , input = defaultInput
     , noResult = defaultNoResult
     , listContainer = defaultListContainer
-    , elementContainer = defaultSuggestion
+    , elementContainer = defaultElementContainer toText
     }
 
 
-config : (Msg data -> State -> msg) -> (data -> Value) -> Config msg data
-config msgMapper suggestionsMapper =
+config : (( State, Msg data ) -> msg) -> (data -> Html msg) -> Config data msg
+config toMsg toText =
     Config
-        { msgMapper = msgMapper
-        , suggestionsMapper = suggestionsMapper
-        , customizations = defaultCostumization
+        { toMsg = toMsg
+        , toText = toText
+        , customizations = defaultCostumization toText
         }
 
 
@@ -124,73 +118,20 @@ initialState =
     State ""
 
 
-isAboveThreshold : Int -> Value -> Bool
+isAboveThreshold : Int -> String -> Bool
 isAboveThreshold threshold value =
     threshold <= String.length value
 
 
-getSearchMsg : Int -> Value -> Msg data
+getSearchMsg : Int -> String -> Msg data
 getSearchMsg threshold value =
-    if isAboveThreshold threshold value then
-        OnSearch value
-    else
-        ThresholdNotReached
-
-
-view : Config msg data -> State -> List data -> Maybe data -> Html msg
-view ((Config { customizations }) as config) state suggestionsList selected =
     let
-        hasSelection =
-            Maybe.map (always True) selected |> Maybe.withDefault False
+        thresholdReached =
+            isAboveThreshold threshold value
     in
-        customizations.container
-            [ search config state selected
-            , suggestions config state suggestionsList
-                |> renderUnless hasSelection
-            ]
+        OnSearch { value = value, thresholdReached = thresholdReached }
 
 
-search : Config msg data -> State -> Maybe data -> Html msg
-search (Config { msgMapper, suggestionsMapper, customizations }) ((State value) as state) selected =
-    let
-        currentValue =
-            selected
-                |> Maybe.map suggestionsMapper
-                |> Maybe.withDefault value
-                |> Attr.value
-
-        event =
-            case selected of
-                Just _ ->
-                    onClick (msgMapper OnUnselect (State ""))
-
-                Nothing ->
-                    onInput
-                        (\newValue ->
-                            msgMapper (getSearchMsg customizations.threshold newValue) (State newValue)
-                        )
-    in
-        customizations.input [ event, currentValue, Attr.placeholder customizations.placeholder ]
-
-
-itemForElement : Config msg data -> State -> data -> ( Value, data, msg )
-itemForElement (Config { suggestionsMapper, msgMapper }) state item =
-    ( suggestionsMapper item, item, msgMapper (OnSelect item) state )
-
-
-suggestions : Config msg data -> State -> List data -> Html msg
-suggestions ((Config { customizations }) as config) ((State value) as state) suggestionsList =
-    let
-        items =
-            List.map (itemForElement config state) suggestionsList
-
-        hasNoSuggestions =
-            List.length suggestionsList == 0
-
-        message =
-            if (isAboveThreshold customizations.threshold value && hasNoSuggestions) then
-                Just customizations.noResult
-            else
-                Nothing
-    in
-        customizations.listContainer message customizations.elementContainer items
+view : Config data msg -> State -> List data -> Html msg
+view (Config { toMsg, toText, customizations }) state items =
+    customizations.container []
