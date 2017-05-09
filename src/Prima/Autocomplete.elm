@@ -6,6 +6,7 @@ module Prima.Autocomplete
         , Msg(..)
         , initialState
         , setInputValue
+        , getInputValue
         , config
         , customConfig
         , view
@@ -23,6 +24,7 @@ module Prima.Autocomplete
 @docs Msg
 @docs initialState
 @docs setInputValue
+@docs getInputValue
 @docs config
 @docs customConfig
 @docs view
@@ -227,6 +229,14 @@ initialState =
 setInputValue : String -> State -> State
 setInputValue value (State state) =
     setState value
+
+
+{-|
+  Get the current input value.
+-}
+getInputValue : State -> String
+getInputValue (State state) =
+    state.value
 
 
 setState : String -> State
