@@ -13,7 +13,7 @@ module Prima.Autocomplete
         )
 
 import Html exposing (..)
-import Html.Attributes as Attr exposing (class, classList, id, placeholder, autocomplete, value)
+import Html.Attributes exposing (class, classList, placeholder, autocomplete, value)
 import Html.Events exposing (onInput, onClick)
 
 
@@ -120,7 +120,7 @@ defaultInput : List (Attribute msg) -> Html msg
 defaultInput attrs =
     let
         attributes =
-            [ class "autocomplete__input", Attr.autocomplete False ]
+            [ class "autocomplete__input", autocomplete False ]
                 |> List.append attrs
     in
         input attributes []
