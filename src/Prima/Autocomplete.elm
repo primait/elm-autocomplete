@@ -56,19 +56,6 @@ type alias Customizations data msg =
     }
 
 
-renderIf : Bool -> Html a -> Html a
-renderIf check html =
-    if check then
-        html
-    else
-        text ""
-
-
-renderUnless : Bool -> Html a -> Html a
-renderUnless check =
-    renderIf (not check)
-
-
 hasNoData : ViewState msg -> Bool
 hasNoData viewState =
     case viewState of
@@ -103,6 +90,7 @@ isPristine viewState =
 -- defaultConfig =
 
 
+defaultContainer : Html msg -> ViewState msg -> Html msg -> Html msg
 defaultContainer noResultView viewState searchInput =
     let
         classes =
@@ -128,6 +116,7 @@ defaultContainer noResultView viewState searchInput =
             ]
 
 
+defaultInput : List (Attribute msg) -> Html msg
 defaultInput attrs =
     let
         attributes =
@@ -137,14 +126,17 @@ defaultInput attrs =
         input attributes []
 
 
+defaultListContainer : (( data, msg ) -> Html msg) -> List ( data, msg ) -> Html msg
 defaultListContainer toHtml items =
     ul [] (List.map toHtml items)
 
 
+defaultNoResult : Html msg
 defaultNoResult =
     div [] [ text "No result found" ]
 
 
+defaultElementContainer : (data -> Html msg) -> ( data, msg ) -> Html msg
 defaultElementContainer toHtml ( data, callback ) =
     li [ class "autocomplete__suggestion", onClick callback ] [ toHtml data ]
 
@@ -178,6 +170,7 @@ setInputValue value (State state) =
     setState value
 
 
+setState : String -> State
 setState value =
     State { value = value, isPristine = True }
 
