@@ -141,6 +141,7 @@ defaultElementContainer toHtml ( data, callback ) =
     li [ class "autocomplete__item", onClick callback ] [ toHtml data ]
 
 
+defaultCostumization : (data -> Html msg) -> Customizations data msg
 defaultCostumization toText =
     { placeholder = ""
     , threshold = 2
@@ -192,7 +193,7 @@ getSearchMsg threshold value =
 
 
 view : Config data msg -> State -> List data -> Html msg
-view (Config { toMsg, toText, customizations }) (State state) items =
+view (Config { toMsg, customizations }) (State state) items =
     let
         threshold =
             customizations.threshold
