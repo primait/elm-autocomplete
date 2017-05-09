@@ -1,4 +1,16 @@
-module Prima.Autocomplete exposing (..)
+module Prima.Autocomplete
+    exposing
+        ( State
+        , Config
+        , Customizations
+        , Msg(..)
+        , initialState
+        , setInputValue
+        , config
+        , view
+        , hasNoData
+        , isPristine
+        )
 
 import Html exposing (..)
 import Html.Attributes as Attr exposing (class, classList, id, placeholder, autocomplete, value)
@@ -57,23 +69,63 @@ renderUnless check =
     renderIf (not check)
 
 
+hasNoData : ViewState msg -> Bool
+hasNoData viewState =
+    case viewState of
+        NoData ->
+            True
+
+        _ ->
+            False
+
+
+hasData : ViewState msg -> Bool
+hasData viewState =
+    case viewState of
+        WithData _ ->
+            True
+
+        _ ->
+            False
+
+
+isPristine : ViewState msg -> Bool
+isPristine viewState =
+    case viewState of
+        Pristine ->
+            True
+
+        _ ->
+            False
+
+
 
 -- defaultConfig =
 
 
 defaultContainer noResultView viewState searchInput =
-    div [ class "autocomplete" ]
-        [ searchInput
-        , case viewState of
-            Pristine ->
-                text ""
+    let
+        classes =
+            [ ( "autocomplete", True )
+            , ( "no-result", hasNoData viewState )
+            , ( "has-data", hasData viewState )
+            ]
 
-            WithData items ->
-                items
+        content =
+            case viewState of
+                Pristine ->
+                    text ""
 
-            NoData ->
-                noResultView
-        ]
+                WithData items ->
+                    items
+
+                NoData ->
+                    noResultView
+    in
+        div [ classList classes ]
+            [ searchInput
+            , content
+            ]
 
 
 defaultInput attrs =
@@ -118,7 +170,7 @@ config toMsg toText =
 
 initialState : State
 initialState =
-    State { value = "", isPristine = True }
+    setState ""
 
 
 setInputValue : String -> State -> State
