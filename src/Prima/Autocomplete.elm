@@ -140,7 +140,12 @@ view (Config { toMsg, toText, customizations }) (State currentValue) items =
                 [ onInput <| \string -> toMsg (getSearchMsg customizations.threshold string)
                 , value currentValue
                 ]
+
+        resultList =
+            List.map (\data -> ( data, toMsg <| ( State currentValue, OnSelect data ) )) items
+                |> customizations.listContainer Nothing customizations.elementContainer
     in
         customizations.container
             [ searchInput
+            , resultList
             ]
