@@ -14,26 +14,55 @@ module Prima.Autocomplete
         , isPristine
         )
 
+{-|
+ Documentation will come eventually ^_^
+
+@docs State
+@docs Config
+@docs Customizations
+@docs Msg
+@docs initialState
+@docs setInputValue
+@docs config
+@docs customConfig
+@docs view
+@docs hasData
+@docs hasNoData
+@docs isPristine
+-}
+
 import Html exposing (..)
 import Html.Attributes exposing (class, classList, placeholder, autocomplete, value)
 import Html.Events exposing (onInput, onClick)
 
 
+{-|
+  Holds the state of the Autocomplete.
+-}
 type State
     = State { value : String, isPristine : Bool }
 
 
+{-|
+  Messages your app can listen to.
+-}
 type Msg data
     = OnSearch { value : String, thresholdReached : Bool }
     | OnSelect data
 
 
+{-|
+  The autocomplete state UI wise.
+-}
 type ViewState msg
     = Pristine
     | WithData (Html msg)
     | NoData
 
 
+{-|
+  Config type.
+-}
 type Config data msg
     = Config
         { toMsg : ( State, Msg data ) -> msg
@@ -41,6 +70,9 @@ type Config data msg
         }
 
 
+{-|
+  Customize the autocomplete!
+-}
 type alias Customizations data msg =
     { placeholder : String
     , threshold : Int
@@ -57,6 +89,9 @@ type alias Customizations data msg =
     }
 
 
+{-|
+  Utility helper
+-}
 hasNoData : ViewState msg -> Bool
 hasNoData viewState =
     case viewState of
@@ -67,6 +102,9 @@ hasNoData viewState =
             False
 
 
+{-|
+  Utility helper
+-}
 hasData : ViewState msg -> Bool
 hasData viewState =
     case viewState of
@@ -77,6 +115,9 @@ hasData viewState =
             False
 
 
+{-|
+  Utility helper
+-}
 isPristine : ViewState msg -> Bool
 isPristine viewState =
     case viewState of
@@ -149,6 +190,9 @@ defaultCostumization =
     }
 
 
+{-|
+  Setup config.
+-}
 config : (( State, Msg data ) -> msg) -> (data -> Html msg) -> Config data msg
 config toMsg toText =
     Config
@@ -157,6 +201,9 @@ config toMsg toText =
         }
 
 
+{-|
+  Setup custom config.
+-}
 customConfig :
     { toMsg : ( State, Msg data ) -> msg
     , customizations : Customizations data msg
@@ -166,11 +213,17 @@ customConfig data =
     Config data
 
 
+{-|
+  Initial state.
+-}
 initialState : State
 initialState =
     setState ""
 
 
+{-|
+  Update the autocomplete value from your app.
+-}
 setInputValue : String -> State -> State
 setInputValue value (State state) =
     setState value
@@ -197,6 +250,9 @@ getSearchMsg threshold value =
         )
 
 
+{-|
+  Autocomplete view.
+-}
 view : Config data msg -> State -> List data -> Html msg
 view (Config { toMsg, customizations }) (State state) items =
     let
