@@ -118,6 +118,11 @@ initialState =
     State ""
 
 
+setInputValue : String -> State -> State
+setInputValue value state =
+    State value
+
+
 isAboveThreshold : Int -> String -> Bool
 isAboveThreshold threshold value =
     threshold <= String.length value
