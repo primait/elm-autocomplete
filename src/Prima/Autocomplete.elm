@@ -6,7 +6,7 @@ import Html.Events exposing (onInput, onClick)
 
 
 type State
-    = State String
+    = State { value : String, isPristine : Bool }
 
 
 type Msg data
@@ -118,12 +118,16 @@ config toMsg toText =
 
 initialState : State
 initialState =
-    State ""
+    State { value = "", isPristine = True }
 
 
 setInputValue : String -> State -> State
-setInputValue value state =
-    State value
+setInputValue value (State state) =
+    setState value
+
+
+setState value =
+    State { value = value, isPristine = True }
 
 
 isAboveThreshold : Int -> String -> Bool
@@ -137,11 +141,13 @@ getSearchMsg threshold value =
         thresholdReached =
             isAboveThreshold threshold value
     in
-        ( State value, OnSearch { value = value, thresholdReached = thresholdReached } )
+        ( State { value = value, isPristine = False }
+        , OnSearch { value = value, thresholdReached = thresholdReached }
+        )
 
 
 view : Config data msg -> State -> List data -> Html msg
-view (Config { toMsg, toText, customizations }) (State currentValue) items =
+view (Config { toMsg, toText, customizations }) (State state) items =
     let
         threshold =
             customizations.threshold
@@ -149,15 +155,15 @@ view (Config { toMsg, toText, customizations }) (State currentValue) items =
         searchInput =
             customizations.input
                 [ onInput <| \string -> toMsg (getSearchMsg threshold string)
-                , value currentValue
+                , value state.value
                 ]
 
         resultList =
-            List.map (\data -> ( data, toMsg <| ( State currentValue, OnSelect data ) )) items
+            List.map (\data -> ( data, toMsg <| ( setState state.value, OnSelect data ) )) items
                 |> customizations.listContainer customizations.elementContainer
 
         viewState =
-            if currentValue == "" || (not <| isAboveThreshold threshold currentValue) then
+            if state.isPristine || (not <| isAboveThreshold threshold state.value) then
                 Pristine
             else
                 case List.length items of
