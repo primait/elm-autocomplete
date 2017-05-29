@@ -1,5 +1,5 @@
 {
-    "version": "1.1.0",
+    "version": "3.0.0",
     "summary": "A very simple autocomplete",
     "repository": "https://github.com/primait/elm-autocomplete.git",
     "license": "BSD3",

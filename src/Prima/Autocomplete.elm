@@ -48,7 +48,7 @@ type State
 
 
 type alias StateData =
-    { value : String, selectedIndex : Maybe Int }
+    { value : String, selectedIndex : Maybe Int, isPristine : Bool }
 
 
 {-|
@@ -234,7 +234,7 @@ customConfig data =
 -}
 initialState : State
 initialState =
-    setState ""
+    setState "" True
 
 
 {-|
@@ -242,7 +242,7 @@ initialState =
 -}
 setInputValue : String -> State -> State
 setInputValue value (State state) =
-    setState value
+    setState value True
 
 
 {-|
@@ -266,7 +266,7 @@ increaseIndex margin total selected =
             selected
 
 
-updateSelectedIndex : { a | selectedIndex : Maybe Int } -> Int -> Int -> { a | selectedIndex : Maybe Int }
+updateSelectedIndex : StateData -> Int -> Int -> State
 updateSelectedIndex data margin total =
     let
         defaultValue =
@@ -275,38 +275,61 @@ updateSelectedIndex data margin total =
             else
                 total - 1
     in
-        { data
-            | selectedIndex =
-                Maybe.map (increaseIndex margin total) data.selectedIndex
-                    |> Maybe.withDefault defaultValue
-                    |> Just
-        }
+        State <|
+            Just
+                { data
+                    | selectedIndex =
+                        Maybe.map (increaseIndex margin total) data.selectedIndex
+                            |> Maybe.withDefault defaultValue
+                            |> Just
+                }
+
+
+selectCurrentIndex selectedIndex items =
+    let
+        helper index =
+            List.indexedMap (,) items
+                |> List.filter (\( i, _ ) -> i == index)
+                |> List.head
+                |> Maybe.map (\( _, item ) -> OnSelect item)
+    in
+        Maybe.andThen helper selectedIndex
 
 
 {-|
   Handle Keyboard events.
 -}
-onKeyDown : Int -> Int -> State -> State
-onKeyDown keyCode total (State state) =
-    case state of
-        Nothing ->
-            State state
+onKeyDown : Int -> List data -> State -> ( State, Maybe (Msg data) )
+onKeyDown keyCode items (State state) =
+    let
+        total =
+            List.length items
+    in
+        case state of
+            Nothing ->
+                ( State state, Nothing )
 
-        Just data ->
-            case keyCode of
-                40 ->
-                    State (Just <| updateSelectedIndex data 1 total)
+            Just data ->
+                case keyCode of
+                    40 ->
+                        -- up
+                        ( updateSelectedIndex data 1 total, Nothing )
 
-                38 ->
-                    State (Just <| updateSelectedIndex data -1 total)
+                    38 ->
+                        -- down
+                        ( updateSelectedIndex data -1 total, Nothing )
 
-                _ ->
-                    State state
+                    13 ->
+                        -- enter
+                        ( State state, selectCurrentIndex data.selectedIndex items )
+
+                    _ ->
+                        ( State state, Nothing )
 
 
-setState : String -> State
-setState value =
-    State (Just { value = value, selectedIndex = Nothing })
+setState : String -> Bool -> State
+setState value isPristine =
+    State (Just { value = value, selectedIndex = Nothing, isPristine = isPristine })
 
 
 isAboveThreshold : Int -> String -> Bool
@@ -320,7 +343,7 @@ getSearchMsg threshold value =
         thresholdReached =
             isAboveThreshold threshold value
     in
-        ( setState value
+        ( setState value False
         , OnSearch { value = value, thresholdReached = thresholdReached }
         )
 
@@ -332,7 +355,7 @@ createResultList customizations toMsg items inputValue selectedIndex =
                 |> Maybe.withDefault -1
 
         mapper index data =
-            ( index == selected, data, toMsg <| ( setState inputValue, OnSelect data ) )
+            ( index == selected, data, toMsg <| ( setState inputValue True, OnSelect data ) )
     in
         List.indexedMap mapper items
             |> customizations.listContainer customizations.elementContainer
@@ -360,7 +383,7 @@ view (Config { toMsg, customizations }) (State state) items =
             createResultList customizations toMsg items inputValue
 
         viewStateHelp data =
-            if not (isAboveThreshold threshold data.value) then
+            if data.isPristine || not (isAboveThreshold threshold data.value) then
                 Pristine
             else
                 case List.length items of
