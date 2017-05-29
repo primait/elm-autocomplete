@@ -44,12 +44,11 @@ import Html.Events exposing (onInput, onClick)
   Holds the state of the Autocomplete.
 -}
 type State
-    = State StateData
+    = State (Maybe StateData)
 
 
-type StateData
-    = NoValue
-    | WithValue { value : String, selectedIndex : Maybe Int }
+type alias StateData =
+    { value : String, selectedIndex : Maybe Int }
 
 
 {-|
@@ -91,10 +90,10 @@ type alias Customizations data msg =
         -> Html msg
     , input : List (Attribute msg) -> Html msg
     , listContainer :
-        (( data, msg ) -> Html msg)
-        -> List ( data, msg )
+        (( Bool, data, msg ) -> Html msg)
+        -> List ( Bool, data, msg )
         -> Html msg
-    , elementContainer : ( data, msg ) -> Html msg
+    , elementContainer : ( Bool, data, msg ) -> Html msg
     }
 
 
@@ -173,7 +172,7 @@ defaultInput attrs =
         input attributes []
 
 
-defaultListContainer : (( data, msg ) -> Html msg) -> List ( data, msg ) -> Html msg
+defaultListContainer : (( Bool, data, msg ) -> Html msg) -> List ( Bool, data, msg ) -> Html msg
 defaultListContainer toHtml items =
     ul [] (List.map toHtml items)
 
@@ -183,9 +182,17 @@ defaultNoResult =
     div [] [ text "No result found" ]
 
 
-defaultElementContainer : (data -> Html msg) -> ( data, msg ) -> Html msg
-defaultElementContainer toHtml ( data, callback ) =
-    li [ class "autocomplete__item", onClick callback ] [ toHtml data ]
+defaultElementContainer : (data -> Html msg) -> ( Bool, data, msg ) -> Html msg
+defaultElementContainer toHtml ( isSelected, data, callback ) =
+    let
+        classes =
+            [ ( "autocomplete__item", True )
+            , ( "autocomplete__item-active", isSelected )
+            ]
+    in
+        li
+            [ classList classes, onClick callback ]
+            [ toHtml data ]
 
 
 defaultCostumization : Customizations data msg
@@ -243,12 +250,8 @@ setInputValue value (State state) =
 -}
 getInputValue : State -> String
 getInputValue (State state) =
-    case state of
-        NoValue ->
-            ""
-
-        WithValue data ->
-            data.value
+    Maybe.map .value state
+        |> Maybe.withDefault ""
 
 
 increaseIndex : Int -> Int -> Int -> Int
@@ -263,19 +266,39 @@ increaseIndex margin total selected =
             selected
 
 
+updateSelectedIndex : { a | selectedIndex : Maybe Int } -> Int -> Int -> { a | selectedIndex : Maybe Int }
+updateSelectedIndex data margin total =
+    let
+        defaultValue =
+            if margin == 1 then
+                0
+            else
+                total - 1
+    in
+        { data
+            | selectedIndex =
+                Maybe.map (increaseIndex margin total) data.selectedIndex
+                    |> Maybe.withDefault defaultValue
+                    |> Just
+        }
+
+
 {-|
   Handle Keyboard events.
 -}
 onKeyDown : Int -> Int -> State -> State
 onKeyDown keyCode total (State state) =
     case state of
-        NoValue ->
+        Nothing ->
             State state
 
-        WithValue data ->
+        Just data ->
             case keyCode of
-                37 ->
-                    State <| WithValue { data | selectedIndex = Maybe.map (increaseIndex 1 total) data.selectedIndex }
+                40 ->
+                    State (Just <| updateSelectedIndex data 1 total)
+
+                38 ->
+                    State (Just <| updateSelectedIndex data -1 total)
 
                 _ ->
                     State state
@@ -283,7 +306,7 @@ onKeyDown keyCode total (State state) =
 
 setState : String -> State
 setState value =
-    State (WithValue { value = value, selectedIndex = Nothing })
+    State (Just { value = value, selectedIndex = Nothing })
 
 
 isAboveThreshold : Int -> String -> Bool
@@ -302,6 +325,19 @@ getSearchMsg threshold value =
         )
 
 
+createResultList customizations toMsg items inputValue selectedIndex =
+    let
+        selected =
+            Maybe.map identity selectedIndex
+                |> Maybe.withDefault -1
+
+        mapper index data =
+            ( index == selected, data, toMsg <| ( setState inputValue, OnSelect data ) )
+    in
+        List.indexedMap mapper items
+            |> customizations.listContainer customizations.elementContainer
+
+
 {-|
   Autocomplete view.
 -}
@@ -312,12 +348,7 @@ view (Config { toMsg, customizations }) (State state) items =
             customizations.threshold
 
         inputValue =
-            case state of
-                NoValue ->
-                    ""
-
-                WithValue data ->
-                    data.value
+            getInputValue (State state)
 
         searchInput =
             customizations.input
@@ -326,23 +357,21 @@ view (Config { toMsg, customizations }) (State state) items =
                 ]
 
         resultList =
-            List.map (\data -> ( data, toMsg <| ( setState inputValue, OnSelect data ) )) items
-                |> customizations.listContainer customizations.elementContainer
+            createResultList customizations toMsg items inputValue
+
+        viewStateHelp data =
+            if not (isAboveThreshold threshold data.value) then
+                Pristine
+            else
+                case List.length items of
+                    0 ->
+                        NoData
+
+                    _ ->
+                        WithData (resultList data.selectedIndex)
 
         viewState =
-            case state of
-                NoValue ->
-                    Pristine
-
-                WithValue data ->
-                    if not (isAboveThreshold threshold data.value) then
-                        Pristine
-                    else
-                        case List.length items of
-                            0 ->
-                                NoData
-
-                            _ ->
-                                WithData resultList
+            Maybe.map viewStateHelp state
+                |> Maybe.withDefault Pristine
     in
         customizations.container viewState searchInput
