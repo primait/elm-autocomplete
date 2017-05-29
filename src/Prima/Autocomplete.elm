@@ -7,6 +7,7 @@ module Prima.Autocomplete
         , initialState
         , setInputValue
         , getInputValue
+        , onKeyDown
         , config
         , customConfig
         , view
@@ -25,6 +26,7 @@ module Prima.Autocomplete
 @docs initialState
 @docs setInputValue
 @docs getInputValue
+@docs onKeyDown
 @docs config
 @docs customConfig
 @docs view
@@ -42,7 +44,12 @@ import Html.Events exposing (onInput, onClick)
   Holds the state of the Autocomplete.
 -}
 type State
-    = State { value : String, isPristine : Bool }
+    = State StateData
+
+
+type StateData
+    = NoValue
+    | WithValue { value : String, selectedIndex : Maybe Int }
 
 
 {-|
@@ -236,12 +243,47 @@ setInputValue value (State state) =
 -}
 getInputValue : State -> String
 getInputValue (State state) =
-    state.value
+    case state of
+        NoValue ->
+            ""
+
+        WithValue data ->
+            data.value
+
+
+increaseIndex : Int -> Int -> Int -> Int
+increaseIndex margin total selected =
+    let
+        target =
+            selected + margin
+    in
+        if (target < total && target >= 0) then
+            target
+        else
+            selected
+
+
+{-|
+  Handle Keyboard events.
+-}
+onKeyDown : Int -> Int -> State -> State
+onKeyDown keyCode total (State state) =
+    case state of
+        NoValue ->
+            State state
+
+        WithValue data ->
+            case keyCode of
+                37 ->
+                    State <| WithValue { data | selectedIndex = Maybe.map (increaseIndex 1 total) data.selectedIndex }
+
+                _ ->
+                    State state
 
 
 setState : String -> State
 setState value =
-    State { value = value, isPristine = True }
+    State (WithValue { value = value, selectedIndex = Nothing })
 
 
 isAboveThreshold : Int -> String -> Bool
@@ -255,7 +297,7 @@ getSearchMsg threshold value =
         thresholdReached =
             isAboveThreshold threshold value
     in
-        ( State { value = value, isPristine = False }
+        ( setState value
         , OnSearch { value = value, thresholdReached = thresholdReached }
         )
 
@@ -269,25 +311,38 @@ view (Config { toMsg, customizations }) (State state) items =
         threshold =
             customizations.threshold
 
+        inputValue =
+            case state of
+                NoValue ->
+                    ""
+
+                WithValue data ->
+                    data.value
+
         searchInput =
             customizations.input
                 [ onInput <| \string -> toMsg (getSearchMsg threshold string)
-                , value state.value
+                , value inputValue
                 ]
 
         resultList =
-            List.map (\data -> ( data, toMsg <| ( setState state.value, OnSelect data ) )) items
+            List.map (\data -> ( data, toMsg <| ( setState inputValue, OnSelect data ) )) items
                 |> customizations.listContainer customizations.elementContainer
 
         viewState =
-            if state.isPristine || (not <| isAboveThreshold threshold state.value) then
-                Pristine
-            else
-                case List.length items of
-                    0 ->
-                        NoData
+            case state of
+                NoValue ->
+                    Pristine
 
-                    _ ->
-                        WithData resultList
+                WithValue data ->
+                    if not (isAboveThreshold threshold data.value) then
+                        Pristine
+                    else
+                        case List.length items of
+                            0 ->
+                                NoData
+
+                            _ ->
+                                WithData resultList
     in
         customizations.container viewState searchInput
