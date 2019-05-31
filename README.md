@@ -1,1 +1,1 @@
-# Simple Elm autocomplete
+# _---DEPRECATED---_  Simple Elm autocomplete
